@@ -42,6 +42,10 @@
 #include <math.h>
 #include "chrono_models/vehicle/hmmwv/HMMWV.h"
 
+#include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
+
 #define PI 3.1415926535
 //using veh_status.msg
 using namespace chrono;
@@ -936,6 +940,18 @@ int main(int argc, char* argv[]) {
     my_hmmwv.SetWheelVisualizationType(wheel_vis_type);
     my_hmmwv.SetTireVisualizationType(tire_vis_type);
 
+    // T.Q. set solver
+    my_hmmwv.GetSystem()->SetSolverType(ChSolver::Type::SOR);
+    ChSolver::Type solver_type = my_hmmwv.GetSystem()->GetSolverType();
+    fprintf(stdout,"Solver Type: %d\n",solver_type);
+
+    // my_hmmwv.GetSystem()->SetMaxItersSolverStab(100);
+    // my_hmmwv.GetSystem()->SetMaxiter(1);
+    //my_hmmwv.GetSystem()->SetMaxItersSolverSpeed(1000);   // set this to 1 is faster, but simulation effect is worse
+
+    my_hmmwv.GetSystem()->SetParallelThreadNumber(8);
+    fprintf(stdout,"ParallelThreadNumber: %d\n",my_hmmwv.GetSystem()->GetParallelThreadNumber());
+
     // Create the terrain
     RigidTerrain terrain(my_hmmwv.GetSystem());
     terrain.SetContactFrictionCoefficient(0.9f);
@@ -980,12 +996,6 @@ int main(int argc, char* argv[]) {
     ChIrrGuiDriver driver_gui(app);
     driver_gui.Initialize();
 
-    /*
-    ChPathFollowerDriver driver_follower(my_hmmwv.GetVehicle(), path, "my_path", target_speed);
-    driver_follower.GetSteeringController().SetLookAheadDistance(5);
-    driver_follower.GetSteeringController().SetGains(0.5, 0, 0);
-    driver_follower.GetSpeedController().SetGains(0.4, 0, 0);
-    */
 
     // ---------------
     // Simulation loop
@@ -1088,6 +1098,7 @@ int main(int argc, char* argv[]) {
 
 
 
+
     while (app.GetDevice()->run()) {
       double time = hmmwv_params.my_hmmwv.GetSystem()->GetChTime();
       i=i+1;
@@ -1116,109 +1127,10 @@ int main(int argc, char* argv[]) {
           trajChanger1(hmmwv_params,app,vehicleinfo_pub,n);
         }
       }
-  /*      myfile.open(path_file,std::ofstream::out | std::ofstream::trunc);
-
-        myfile << ' ' << num_pts << ' '<< num_cols << '\n';
-
-        for (int pt_cnt=0; pt_cnt<num_pts;pt_cnt=pt_cnt+1){
-          myfile << ' ' << hmmwv_params.x_traj_curr[pt_cnt] << ' '<< hmmwv_params.y_traj_curr[pt_cnt] <<' ' << z_val << '\n';
-        }
-        myfile.close();
-
-        // ----------------------
-        // Create the Bezier path
-        // ----------------------
-
-        path = ChBezierCurve::read(path_file);
-
-      //  driver_follower.Reset();
-      //  app.SetPaused(1);
-        //driver_follower->Reset();
-        //delete[] driver_follower1;
-      //  ChPathFollowerDriver* driver_follower= new ChPathFollowerDriver(my_hmmwv.GetVehicle(), steering_controller_file,
-      //                                      speed_controller_file, path, "my_path", target_speed);
-        ChPathFollowerDriver driver_follower(my_hmmwv.GetVehicle(), steering_controller_file,
-                                             speed_controller_file, path, "my_path", target_speed);
-        //driver_follower=driver_follower1;
-        driver_follower->Initialize();
-      //  app.SetPaused(0);
-
-        // Create and register a custom Irrlicht event receiver to allow selecting the
-        // current driver model.
-
-        ChDriverSelector selector(my_hmmwv.GetVehicle(), driver_follower, &driver_gui);
-        app.SetUserEventReceiver(&selector);
-
-
-
-        // -----------------
-        // Initialize output
-        // -----------------
-
-        state_output = state_output || povray_output;
-
-        if (state_output) {
-            if (ChFileutils::MakeDirectory(out_dir.c_str()) < 0) {
-                std::cout << "Error creating directory " << out_dir << std::endl;
-                return 1;
-            }
-        }
-
-        if (povray_output) {
-            if (ChFileutils::MakeDirectory(pov_dir.c_str()) < 0) {
-                std::cout << "Error creating directory " << pov_dir << std::endl;
-                return 1;
-            }
-            driver_follower->ExportPathPovray(out_dir);
-        }
-
-        // Update sentinel and target location markers for the path-follower controller.
-        // Note that we do this whether or not we are currently using the path-follower driver.
-
-
-
-        time = my_hmmwv.GetSystem()->GetChTime();
-        throttle_input = selector.GetDriver()->GetThrottle();
-        steering_input = selector.GetDriver()->GetSteering();
-        braking_input = selector.GetDriver()->GetBraking();
-        // Update modules (process inputs from other modules)
-        driver_follower->Synchronize(time);
-        driver_gui.Synchronize(time);
-        terrain.Synchronize(time);
-        my_hmmwv.Synchronize(time, steering_input, braking_input, throttle_input, terrain);
-        std::string msg = selector.UsingGUI() ? "GUI driver" : "Follower driver";
-        app.Synchronize(msg, steering_input, throttle_input, braking_input);
-
-        // Advance simulation for one timestep for all modules
-        double step = realtime_timer.SuggestSimulationStep(step_size);
-        driver_follower->Advance(step);
-        driver_gui.Advance(step);
-        terrain.Advance(step);
-        my_hmmwv.Advance(step);
-        app.Advance(step);
-
-        // Finalize construction of visualization assets
-        app.AssetBindAll();
-        app.AssetUpdateAll();*/
 
         hmmwv_params.x_traj_prev=hmmwv_params.x_traj_curr;
         hmmwv_params.y_traj_prev=hmmwv_params.y_traj_curr;
 
-        /*
-        // Hack for acceleration-braking maneuver
-        static bool braking = false;
-        if (my_hmmwv.GetVehicle().GetVehicleSpeed() > target_speed)
-            braking = true;
-        if (braking) {
-            throttle_input = 0;
-            braking_input = 1;
-        } else {
-            throttle_input = 1;
-            braking_input = 0;
-        }
-        */
-
-      //     ros::Subscriber sub = n.subscribe<traj_gen_chrono::Control>("desired_ref", 1, &parameters::controlCallback, &hmmwv_params);
 
         // Render scene and output POV-Ray data
       if (hmmwv_params.sim_frame % hmmwv_params.render_steps == 0) {
@@ -1226,20 +1138,6 @@ int main(int argc, char* argv[]) {
           app.BeginScene(true, true, irr::video::SColor(255, 140, 161, 192));
           app.DrawAll();
           app.EndScene();
-
-        /*    if (povray_output) {
-                char filename[100];
-                sprintf(filename, "%s/data_%03d.dat", pov_dir.c_str(), render_frame + 1);
-                utils::WriteShapesPovray(my_hmmwv.GetSystem(), filename);
-            }
-
-            if (state_output) {
-                csv << time << steering_input << throttle_input << braking_input;
-                csv << my_hmmwv.GetVehicle().GetVehicleSpeed();
-                csv << acc_CG.x() << fwd_acc_CG << acc_CG.y() << lat_acc_CG;
-                csv << acc_driver.x() << fwd_acc_driver << acc_driver.y() << lat_acc_driver;
-                csv << std::endl;
-            }*/
 
           hmmwv_params.render_frame++;
         }
@@ -1252,14 +1150,6 @@ int main(int argc, char* argv[]) {
             GetLog() << "\n";
         }*/
         ros_chrono_msgs::veh_status data_out;
-
-/*
-        ChVector<> acc_CG = my_hmmwv.GetVehicle().GetChassisBody()->GetPos_dtdt();
-        ChVector<> acc_driver = my_hmmwv.GetVehicle().GetVehicleAcceleration(driver_pos);
-        double fwd_acc_CG = fwd_acc_GC_filter.Add(acc_CG.x());
-        double lat_acc_CG = lat_acc_GC_filter.Add(acc_CG.y());
-        double fwd_acc_driver = fwd_acc_driver_filter.Add(acc_driver.x());
-        double lat_acc_driver = lat_acc_driver_filter.Add(acc_driver.y());*/
 
 
         // End simulation
@@ -1285,6 +1175,7 @@ int main(int argc, char* argv[]) {
 
         // Advance simulation for one timestep for all modules
         double step = hmmwv_params.realtime_timer.SuggestSimulationStep(step_size);
+        fprintf(stdout,",time: %f, step_size: %f, suggested: %f\n",time,step_size,step);
         driver_follower.Advance(step);
         driver_gui.Advance(step);
         hmmwv_params.terrain.Advance(step);
